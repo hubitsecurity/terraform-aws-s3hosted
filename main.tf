@@ -7,19 +7,37 @@
 locals {
   is_prod = var.environment == "prd"
 
-  subdomain = local.is_prod ?  var.subdomain : fomart("%s.%s", var.subdomain, var.environment)
-  bucket_name = format("%s.%s",local.subdomain,var.site_domain)
+  subdomain   = local.is_prod ? var.subdomain : format("%s-%s", var.subdomain, var.environment)
+  bucket_name = format("%s.%s", local.subdomain, var.site_domain)
 
-  files = fileset(var.path_to_deploy_files,".*")
+  files = {for k,v in fileset(var.path_to_deploy_files, "*") : k => format("%s%s",var.path_to_deploy_files,v)}
 }
 
 resource "aws_s3_bucket" "site" {
   bucket = local.bucket_name
- }
+}
 
-resource "aws_s3_bucket_acl" "example_bucket_acl" {
+# resource "aws_s3_bucket_acl" "example_bucket_acl" {
+#   bucket = aws_s3_bucket.site.id
+#   acl    = "public-read"
+# }
+
+resource "aws_s3_bucket_ownership_controls" "example" {
   bucket = aws_s3_bucket.site.id
-  acl    = "public-read"
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+
+resource "aws_s3_bucket_public_access_block" "this" {
+  bucket = aws_s3_bucket.site.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 resource "aws_s3_bucket_website_configuration" "this" {
@@ -34,43 +52,85 @@ resource "aws_s3_bucket_website_configuration" "this" {
   }
 
   # routing_rule {
-    # condition {
-    #   key_prefix_equals = "docs/"
-    # }
-    # redirect {
-    #   replace_key_prefix_with = "documents/"
-    # }
+  # condition {
+  #   key_prefix_equals = "docs/"
+  # }
+  # redirect {
+  #   replace_key_prefix_with = "documents/"
+  # }
   # }
 }
 
+resource "aws_s3_bucket_cors_configuration" "this" {
+  bucket = aws_s3_bucket.site.id
+  cors_rule {
+    allowed_headers = [
+      "*"
+    ]
+    allowed_methods = [
+      "PUT",
+      "POST",
+      "DELETE",
+      "GET",
+      "HEAD"
+    ]
+    allowed_origins = [
+      "https://${local.bucket_name}",
+      "https://${aws_cloudfront_distribution.dist.domain_name}"
+    ]
+    expose_headers = [
+      "ETag",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Methods",
+      "Access-Control-Allow-Headers",
+      "Access-Control-Expose-Headers"
+    ]
+    max_age_seconds = 3000
+  }
+
+}
 
 # resource "aws_s3_bucket_object" "this" {
 #   for_each = local.files
-# bucket = aws_s3_bucket.site.id
-# key = each.key
-# source = each.value
-# etag = filemd5(each.value)
+#   bucket   = aws_s3_bucket.site.id
+#   key      = each.key
+#   source   = each.value
+#   etag     = filemd5(each.value)
 # }
 
 data "aws_iam_policy_document" "S3_read_files" {
   statement {
-    sid = "CloudFrontOriginReadGetObject"
+    sid    = "CloudFrontDistReadGetObject"
     effect = "Allow"
+    principals {
+      type = "Service"
+      identifiers = [
+        "cloudfront.amazonaws.com"
+      ]
+    }
+    resources = [
+      aws_s3_bucket.site.arn,
+      format("%s/*", aws_s3_bucket.site.arn)
+    ]
+    
     actions = [
       "s3:GetObject"
     ]
-    resources = [ 
-      aws_s3_bucket.site.arn,
-      format("%s/*",aws_s3_bucket.site.arn)
-    ]
-    principals {
-      type = "AWS"
-      identifiers = [ aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn  ]
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [ aws_cloudfront_distribution.dist.arn ]
     }
   }
 }
 
-resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
+
+resource "aws_cloudfront_origin_access_control" "origin_access_control" {
+  name                              = "control-access-${var.subdomain}"
+  description                       = "Control Origin for S3 for ${var.subdomain}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
 }
 
 resource "aws_s3_bucket_policy" "public_read" {
@@ -79,8 +139,8 @@ resource "aws_s3_bucket_policy" "public_read" {
 }
 
 resource "aws_acm_certificate" "cert" {
-  domain_name               = format("%s.%s", local.subdomain, var.site_domain)
-  validation_method         = "DNS"
+  domain_name       = format("%s.%s", local.subdomain, var.site_domain)
+  validation_method = "DNS"
 
   tags = {
     Name = var.site_domain
@@ -115,25 +175,17 @@ resource "aws_acm_certificate_validation" "cert" {
 }
 
 resource "aws_cloudfront_distribution" "dist" {
+  
   origin {
     domain_name = aws_s3_bucket.site.bucket_domain_name
     origin_id   = aws_s3_bucket.site.id
-    s3_origin_config {
-      origin_access_identity = aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path
-    }
-    # custom_origin_config {
-    ##   http_port              = "80"
-    #   https_port             = "443"
-    #   origin_protocol_policy = "https-only"
-    #   origin_ssl_protocols   = ["TLSv1", "TLSv1.1", "TLSv1.2"]
-    # }
+    origin_access_control_id = aws_cloudfront_origin_access_control.origin_access_control.id
   }
   enabled             = true
   default_root_object = "index.html"
 
   aliases = [
-     format("%s.%s",local.subdomain,var.site_domain),
-    #  var.site_domain,
+    local.bucket_name,
   ]
 
   restrictions {
@@ -143,16 +195,17 @@ resource "aws_cloudfront_distribution" "dist" {
   }
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD"]
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = aws_s3_bucket.site.id
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-    viewer_protocol_policy = "allow-all"
+
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.this.id
+    cache_policy_id = data.aws_cloudfront_cache_policy.this.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.this.id
+
+    compress = true
+    viewer_protocol_policy = "redirect-to-https"
+
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400
@@ -162,8 +215,68 @@ resource "aws_cloudfront_distribution" "dist" {
     acm_certificate_arn = aws_acm_certificate_validation.cert.certificate_arn
     ssl_support_method  = "sni-only"
   }
-  provisioner "local-exec" {
-    command = "aws cloudfront create-invalidation --distribution-id ${self.id} --paths '/*'"
+}
+
+data "aws_cloudfront_origin_request_policy" "this" {
+  name = "Managed-CORS-S3Origin"
+}
+
+data "aws_cloudfront_cache_policy" "this" {
+  name = "Managed-CachingOptimized"
+}
+
+resource "aws_cloudfront_response_headers_policy" "this" {
+  name    = "request-headers-policy"
+  comment = "Security Best Practices"
+  security_headers_config {
+    
+    content_type_options {
+      override = true  
+    }
+    frame_options {
+      frame_option = "SAMEORIGIN"
+      override = true
+    } 
+    
+    referrer_policy {
+    override = true
+    referrer_policy =   "strict-origin-when-cross-origin"
+    }
+    
+    strict_transport_security {
+      access_control_max_age_sec = 84200
+      preload = true
+      include_subdomains = true
+      override = true
+    }
+
+    xss_protection {
+      mode_block = true
+      override = true
+      protection = true
+    }
+  }
+
+  cors_config {
+    access_control_allow_credentials = false
+
+    access_control_allow_headers {
+      items = ["*"]
+    }
+
+    access_control_allow_methods {
+      items = ["ALL"]
+    }
+
+    access_control_allow_origins {
+      items = ["*"]
+    }
+    access_control_expose_headers {
+      items = ["*"]
+    }
+    access_control_max_age_sec = 600
+
+    origin_override = true
   }
 }
 
@@ -173,5 +286,17 @@ resource "aws_route53_record" "this" {
   ttl     = 1
   type    = "CNAME"
 
-  records  = [aws_cloudfront_distribution.dist.domain_name]
+  records = [aws_cloudfront_distribution.dist.domain_name]
+}
+
+resource "null_resource" "deploy" {
+  triggers = {
+    "timer" = timestamp()
+  }
+  provisioner "local-exec" {
+    command = <<EOF
+    aws s3 sync ${var.path_to_deploy_files} s3://${aws_s3_bucket.site.id}/ --delete
+    aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.dist.id} --paths '/*'
+    EOF
+  }
 }

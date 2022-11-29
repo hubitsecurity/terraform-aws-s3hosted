@@ -13,7 +13,11 @@ output "cloudfront_endpoint" {
   value       = aws_cloudfront_distribution.dist.domain_name
 }
 
-output "domain_name" {
+output "route53" {
   description = "Website endpoint"
-  value       = var.site_domain
+  value       = data.aws_route53_zone.domain.zone_id
+}
+
+output "files" {
+  value = local.files
 }
