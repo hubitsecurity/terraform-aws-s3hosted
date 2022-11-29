@@ -1,41 +1,55 @@
-A utility to generate documentation from Terraform modules in various output formats
+# S3 Hosted Web Applications CSR
+----
+Fully hosted on AWS with s3, cloudfront and route53
 
-Usage:
-  terraform-docs [PATH] [flags]
-  terraform-docs [command]
+## Requirements
 
-Available Commands:
-  asciidoc    Generate AsciiDoc of inputs and outputs
-  completion  Generate shell completion code for the specified shell (bash or zsh)
-  help        Help about any command
-  json        Generate JSON of inputs and outputs
-  markdown    Generate Markdown of inputs and outputs
-  pretty      Generate colorized pretty of inputs and outputs
-  tfvars      Generate terraform.tfvars of inputs
-  toml        Generate TOML of inputs and outputs
-  version     Print the version number of terraform-docs
-  xml         Generate XML of inputs and outputs
-  yaml        Generate YAML of inputs and outputs
+| Name | Version |
+|------|---------|
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >=3.32.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | >=3.1.0 |
 
-Flags:
-  -c, --config string               config file name (default ".terraform-docs.yml")
-      --footer-from string          relative path of a file to read footer from (default "")
-      --header-from string          relative path of a file to read header from (default "main.tf")
-  -h, --help                        help for terraform-docs
-      --hide strings                hide section [all, data-sources, footer, header, inputs, modules, outputs, providers, requirements, resources]
-      --lockfile                    read .terraform.lock.hcl if exist (default true)
-      --output-check                check if content of output file is up to date (default false)
-      --output-file string          file path to insert output into (default "")
-      --output-mode string          output to file method [inject, replace] (default "inject")
-      --output-template string      output template (default "<!-- BEGIN_TF_DOCS -->\n{{ .Content }}\n<!-- END_TF_DOCS -->")
-      --output-values               inject output values into outputs (default false)
-      --output-values-from string   inject output values from file into outputs (default "")
-      --read-comments               use comments as description when description is empty (default true)
-      --recursive                   update submodules recursively (default false)
-      --recursive-path string       submodules path to recursively update (default "modules")
-      --show strings                show section [all, data-sources, footer, header, inputs, modules, outputs, providers, requirements, resources]
-      --sort                        sort items (default true)
-      --sort-by string              sort items by criteria [name, required, type] (default "name")
-  -v, --version                     version for terraform-docs
+## Providers
 
-Use "terraform-docs [command] --help" for more information about a command.
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >=3.32.0 |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [aws_acm_certificate.cert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate) | resource |
+| [aws_acm_certificate_validation.cert](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/acm_certificate_validation) | resource |
+| [aws_cloudfront_distribution.dist](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudfront_distribution) | resource |
+| [aws_cloudfront_origin_access_identity.origin_access_identity](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudfront_origin_access_identity) | resource |
+| [aws_route53_record.cert_validation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
+| [aws_route53_record.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
+| [aws_s3_bucket.site](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
+| [aws_s3_bucket_acl.example_bucket_acl](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_acl) | resource |
+| [aws_s3_bucket_policy.public_read](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
+| [aws_s3_bucket_website_configuration.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_website_configuration) | resource |
+| [aws_iam_policy_document.S3_read_files](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_route53_zone.domain](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/route53_zone) | data source |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to put the bucket into | `string` | `"us-east-1"` | no |
+| <a name="input_environment"></a> [environment](#input\_environment) | should attend to one of prd, dev, hml | `string` | n/a | yes |
+| <a name="input_site_domain"></a> [site\_domain](#input\_site\_domain) | The domain name to use for the static site | `string` | n/a | yes |
+| <a name="input_subdomain"></a> [subdomain](#input\_subdomain) | Subdomain where the S3 will held the content and cloudflare will point to | `string` | n/a | yes |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_bucket_endpoint"></a> [bucket\_endpoint](#output\_bucket\_endpoint) | Bucket endpoint |
+| <a name="output_cloudfront_endpoint"></a> [cloudfront\_endpoint](#output\_cloudfront\_endpoint) | Cloudfront endpoint |
+| <a name="output_domain_name"></a> [domain\_name](#output\_domain\_name) | Website endpoint |
+| <a name="output_website_bucket_name"></a> [website\_bucket\_name](#output\_website\_bucket\_name) | Name (id) of the bucket |

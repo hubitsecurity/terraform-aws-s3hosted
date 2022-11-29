@@ -1,6 +1,12 @@
+/**
+ * # S3 Hosted Web Applications CSR
+ * ----
+ * Fully hosted on AWS with s3, cloudfront and route53
+ */
+
 locals {
   is_prod = var.environment == "prd"
-  
+
   subdomain = local.is_prod ?  var.subdomain : fomart("%s.%s", var.subdomain, var.environment)
   bucket_name = format("%s.%s",local.subdomain,var.site_domain)
 
