@@ -22,3 +22,12 @@ variable "environment" {
     error_message = "Try one valid value."
   }
 }
+
+variable "path_to_deploy_files" {
+  type = string
+  description = "Absolute path for files"
+  validation {
+    condition = try(length(regex("(^/.*)",  var.path_to_deploy_files)) == 1,false)
+    error_message = "Path should be absolute."
+  }
+}

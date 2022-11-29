@@ -13,7 +13,7 @@ Fully hosted on AWS with s3, cloudfront and route53
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >=3.32.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.42.0 |
 
 ## Modules
 
@@ -42,6 +42,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to put the bucket into | `string` | `"us-east-1"` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | should attend to one of prd, dev, hml | `string` | n/a | yes |
+| <a name="input_path_to_deploy_files"></a> [path\_to\_deploy\_files](#input\_path\_to\_deploy\_files) | Absolute path for files | `string` | n/a | yes |
 | <a name="input_site_domain"></a> [site\_domain](#input\_site\_domain) | The domain name to use for the static site | `string` | n/a | yes |
 | <a name="input_subdomain"></a> [subdomain](#input\_subdomain) | Subdomain where the S3 will held the content and cloudflare will point to | `string` | n/a | yes |
 

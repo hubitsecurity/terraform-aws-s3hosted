@@ -10,7 +10,7 @@ locals {
   subdomain = local.is_prod ?  var.subdomain : fomart("%s.%s", var.subdomain, var.environment)
   bucket_name = format("%s.%s",local.subdomain,var.site_domain)
 
-  files = fileset(format("%s/dist/",path.root), ".*")
+  files = fileset(var.path_to_deploy_files,".*")
 }
 
 resource "aws_s3_bucket" "site" {
