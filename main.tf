@@ -10,11 +10,14 @@ locals {
   subdomain   = local.is_prod ? var.subdomain : format("%s-%s", var.subdomain, var.environment)
   bucket_name = format("%s.%s", local.subdomain, var.site_domain)
 
-  files = {for k,v in fileset(var.path_to_deploy_files, "*") : k => format("%s%s",var.path_to_deploy_files,v)}
+  files = { for k, v in fileset(var.path_to_deploy_files, "*") : k => format("%s%s", var.path_to_deploy_files, v) }
+
+  tags = var.tags
 }
 
 resource "aws_s3_bucket" "site" {
   bucket = local.bucket_name
+  tags = local.tags
 }
 
 # resource "aws_s3_bucket_acl" "example_bucket_acl" {
@@ -112,14 +115,14 @@ data "aws_iam_policy_document" "S3_read_files" {
       aws_s3_bucket.site.arn,
       format("%s/*", aws_s3_bucket.site.arn)
     ]
-    
+
     actions = [
       "s3:GetObject"
     ]
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
-      values   = [ aws_cloudfront_distribution.dist.arn ]
+      values   = [aws_cloudfront_distribution.dist.arn]
     }
   }
 }
@@ -142,9 +145,9 @@ resource "aws_acm_certificate" "cert" {
   domain_name       = format("%s.%s", local.subdomain, var.site_domain)
   validation_method = "DNS"
 
-  tags = {
+  tags =merge(local.tags,{
     Name = var.site_domain
-  }
+  })
 }
 
 data "aws_route53_zone" "domain" {
@@ -172,13 +175,14 @@ resource "aws_route53_record" "cert_validation" {
 resource "aws_acm_certificate_validation" "cert" {
   certificate_arn         = aws_acm_certificate.cert.arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+  
 }
 
 resource "aws_cloudfront_distribution" "dist" {
-  
+
   origin {
-    domain_name = aws_s3_bucket.site.bucket_domain_name
-    origin_id   = aws_s3_bucket.site.id
+    domain_name              = aws_s3_bucket.site.bucket_domain_name
+    origin_id                = aws_s3_bucket.site.id
     origin_access_control_id = aws_cloudfront_origin_access_control.origin_access_control.id
   }
   enabled             = true
@@ -199,22 +203,23 @@ resource "aws_cloudfront_distribution" "dist" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = aws_s3_bucket.site.id
 
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.this.id
-    cache_policy_id = data.aws_cloudfront_cache_policy.this.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.this.id
+    cache_policy_id            = data.aws_cloudfront_cache_policy.this.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.this.id
 
-    compress = true
+    compress               = true
     viewer_protocol_policy = "redirect-to-https"
 
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
   }
 
   viewer_certificate {
     acm_certificate_arn = aws_acm_certificate_validation.cert.certificate_arn
     ssl_support_method  = "sni-only"
   }
+  tags = local.tags
 }
 
 data "aws_cloudfront_origin_request_policy" "this" {
@@ -229,30 +234,30 @@ resource "aws_cloudfront_response_headers_policy" "this" {
   name    = "request-headers-policy"
   comment = "Security Best Practices"
   security_headers_config {
-    
+
     content_type_options {
-      override = true  
+      override = true
     }
     frame_options {
       frame_option = "SAMEORIGIN"
-      override = true
-    } 
-    
-    referrer_policy {
-    override = true
-    referrer_policy =   "strict-origin-when-cross-origin"
+      override     = true
     }
-    
+
+    referrer_policy {
+      override        = true
+      referrer_policy = "strict-origin-when-cross-origin"
+    }
+
     strict_transport_security {
       access_control_max_age_sec = 84200
-      preload = true
-      include_subdomains = true
-      override = true
+      preload                    = true
+      include_subdomains         = true
+      override                   = true
     }
 
     xss_protection {
       mode_block = true
-      override = true
+      override   = true
       protection = true
     }
   }

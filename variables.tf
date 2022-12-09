@@ -31,3 +31,9 @@ variable "path_to_deploy_files" {
     error_message = "Path should be absolute."
   }
 }
+
+variable "tags" {
+  description = "Tag resoureces"
+  type = map(any)
+  default = {}
+}
