@@ -50,7 +50,6 @@ setup:
 	cd "$$PWD"
 	make docs
 	make lint
-	git add README.md
 	EOF
 	@chmod +x .git/hooks/pre-commit
 

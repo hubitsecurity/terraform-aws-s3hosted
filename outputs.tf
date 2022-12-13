@@ -21,3 +21,10 @@ output "route53" {
 output "files" {
   value = local.files
 }
+
+output "command_invalidation" {
+  value = <<-EOT
+    aws s3 sync ${var.path_to_deploy_files} s3://${aws_s3_bucket.site.id}/ --delete
+    aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.dist.id} --paths '/*'
+  EOT
+}

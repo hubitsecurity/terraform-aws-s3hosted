@@ -17,7 +17,7 @@ locals {
 
 resource "aws_s3_bucket" "site" {
   bucket = local.bucket_name
-  tags = local.tags
+  tags   = local.tags
 }
 
 # resource "aws_s3_bucket_acl" "example_bucket_acl" {
@@ -145,7 +145,7 @@ resource "aws_acm_certificate" "cert" {
   domain_name       = format("%s.%s", local.subdomain, var.site_domain)
   validation_method = "DNS"
 
-  tags =merge(local.tags,{
+  tags = merge(local.tags, {
     Name = var.site_domain
   })
 }
@@ -175,7 +175,7 @@ resource "aws_route53_record" "cert_validation" {
 resource "aws_acm_certificate_validation" "cert" {
   certificate_arn         = aws_acm_certificate.cert.arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
-  
+
 }
 
 resource "aws_cloudfront_distribution" "dist" {
@@ -196,6 +196,13 @@ resource "aws_cloudfront_distribution" "dist" {
     geo_restriction {
       restriction_type = "none"
     }
+  }
+
+  custom_error_response {
+    error_caching_min_ttl = 10
+    error_code            = 403
+    response_code         = 403
+    response_page_path    = "/"
   }
 
   default_cache_behavior {
@@ -292,16 +299,4 @@ resource "aws_route53_record" "this" {
   type    = "CNAME"
 
   records = [aws_cloudfront_distribution.dist.domain_name]
-}
-
-resource "null_resource" "deploy" {
-  triggers = {
-    "timer" = timestamp()
-  }
-  provisioner "local-exec" {
-    command = <<EOF
-    aws s3 sync ${var.path_to_deploy_files} s3://${aws_s3_bucket.site.id}/ --delete
-    aws cloudfront create-invalidation --distribution-id ${aws_cloudfront_distribution.dist.id} --paths '/*'
-    EOF
-  }
 }
